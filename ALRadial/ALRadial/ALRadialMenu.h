@@ -8,6 +8,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <MapKit/MapKit.h>
 #import "ALRadialButton.h"
 
 @class ALRadialMenu;
@@ -22,14 +23,14 @@
  */
 - (NSInteger) numberOfItemsInRadialMenu:(ALRadialMenu *)radialMenu;
 
-/** 
+/**
  * when called with this message delegate's should return the size of the arc (how far the objects are spread) the items will be draw in
  * @return size of the arc
  * @param radialMenu the radial menu object making the request
  */
- - (NSInteger) arcSizeForRadialMenu:(ALRadialMenu *)radialMenu;
+- (NSInteger) arcSizeForRadialMenu:(ALRadialMenu *)radialMenu;
 
-/** 
+/**
  * when called with this message delegate's should return the arc radius (distance between the button and objects final resting spot)
  * @return radius for the arc
  * @param radialMenu the radial menu object making the request
@@ -37,7 +38,7 @@
 - (NSInteger) arcRadiusForRadialMenu:(ALRadialMenu *)radialMenu;
 
 
-/** 
+/**
  * delegate's should return the image to be displayed at the the given index
  * @return image to be displayed
  * @param radialMenu the radial menu object making the request
@@ -73,14 +74,14 @@
 @interface ALRadialMenu : UIView <ALRadialButtonDelegate>
 
 ///@name Tasks
-/** 
+/**
  * method that flings the item's into view
  * @param button the UIButton the items should appear from
  * @param view the view the buttons will be added to
  */
 - (void)itemsWillAppearFromButton:(UIButton *) button inView:(UIView *)view;
 
-/** 
+/**
  * method that removes the item's from view
  * @param button the UIButton the items should recoil into
  */
