@@ -10,13 +10,30 @@
 #import "ALRadialMenu.h"
 #import <QuartzCore/QuartzCore.h>
 
-@implementation ALRadialMenu
+@implementation ALRadialMenu {
+    MKMapView *theMapView;
+}
 
+- (void)itemsWillAppearFromAnnotationView:(MKAnnotationView *)annotationView inView:(MKMapView *)mapView
+{
+    CGPoint center = [mapView convertCoordinate:annotationView.annotation.coordinate toPointToView:mapView];
+    [self itemsWillAppearWithCenterPoint:center inView:mapView aroundView:annotationView animateSender:NO];
+}
 
-//FIXME: sanity/dedup this
-- (void)itemsWillAppearFromButton:(UIButton *) button inView:(UIView *)view {
+- (void)itemsWillAppearFromButton:(UIButton *)button inView:(UIView *)view
+{
+    [self itemsWillAppearWithCenterPoint:button.center inView:view aroundView:button animateSender:YES];
+}
+
+- (void)itemsWillAppearWithCenterPoint:(CGPoint)center inView:(UIView *)view aroundView:(UIView *)sender animateSender:(BOOL)animateSender
+{
 	if ([self.items count]) {
 		//the items are already displayed, we shouldn't be here
+		return;
+	}
+
+    if (self.animationTimer != nil) {
+		//an animation is already occuring, just exit, this happens when someone presses the button multiple times
 		return;
 	}
 
@@ -46,16 +63,15 @@
 		start = [self.delegate arcStartForRadialMenu:self];
 	}
 	
-	
-	float angle = (arc>=360)?(360/itemCount):((itemCount>1)?(arc/(itemCount-1)):0.0f);
-	int centerX = button.center.x;
-	int centerY = button.center.y;
-	CGPoint origin = CGPointMake(centerX, centerY);
-	
-	float buttonSize = 25.0f;
-	if ([self.delegate respondsToSelector:@selector(buttonSizeForRadialMenu:)]) {
-		buttonSize = [self.delegate buttonSizeForRadialMenu:self];
+    float angle;
+    if (arc == 360) {
+        angle = arc/itemCount;
+    } else {
+        angle = arc/(itemCount-1);
 	}
+	int centerX = center.x;
+	int centerY = center.y;
+	CGPoint origin = CGPointMake(centerX, centerY);
 	
 	int currentItem = 1;
 	ALRadialButton *popupButton;
@@ -69,7 +85,7 @@
 		int extraY = round (centerY + (radius*1.07) * sin(radians));
 		
 		//FIXME: make height/width ivars with a delegate to resize
-		CGRect frame = CGRectMake(centerX-buttonSize*0.5f, centerY-buttonSize*0.5f, buttonSize, buttonSize);
+		CGRect frame = CGRectMake(centerX, centerY, 30, 30);
 		
 		CGPoint final = CGPointMake(x, y);
 		CGPoint bounce = CGPointMake(extraX, extraY);
@@ -90,7 +106,7 @@
 		[popupButton addTarget:self action:@selector(buttonPressed:) forControlEvents:UIControlEventTouchUpInside];
 		
 		
-		[view insertSubview:popupButton belowSubview:button];
+		[view insertSubview:popupButton belowSubview:sender];
 		
 		[mutablePopups addObject:popupButton];
 		
@@ -110,21 +126,33 @@
 	//start the timer that kicks off each animation set
 	self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:flingInterval target:self selector:@selector(willFlingItem) userInfo:nil repeats:YES];
 	
+    if (animateSender) {
 	//the origin button should spin for as long as we are flinging objects
 	//+1 so its still spinning as the final object is animating out
 	float spinDuration = ([self.items count]+1) * flingInterval;
 	
 	//use CABasicAnimation instead of a view animation so we can keep the spin going for more than 360 degrees
-	[self shouldRotateButton:button forDuration:spinDuration forwardDirection:YES];
+        [self shouldRotateButton:sender forDuration:spinDuration forwardDirection:YES];
+    }
 }
 
 
-- (void)itemsWillDisapearIntoButton:(UIButton *) button {
+- (void)itemsWillDisapearIntoButton:(UIView *)button inView:(UIView *)view {
 	if ([self.items count] == 0) {
 		//no items are displayed, we shouldn't be here
 		return;
 	}
 
+    if (self.animationTimer != nil) {
+		//an animation is already occuring, just exit, this happens when someone presses the button multiple times
+		return;
+	}
+    
+    BOOL animateSender = YES;
+    if ([button isKindOfClass:[MKAnnotationView class]]) {
+        animateSender = NO;
+        theMapView = (MKMapView *)view;
+    }
 	
 	//calculate the item fling interval based on the number of items
 	//never go on for more than half a second
@@ -135,10 +163,12 @@
 	//fling index is still the last object from the fling out
 	self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:flingInterval target:self selector:@selector(willRecoilItem) userInfo:nil repeats:YES];
 	
+    if (animateSender) {
 	//this should go on for as long as we are flinging objects
 	float spinDuration = ([self.items count]+1) * flingInterval;
 
 	[self shouldRotateButton:button forDuration:spinDuration forwardDirection:NO];
+}
 }
 
 
@@ -150,7 +180,7 @@
 	
 	if ([self.items count]) {
 		//the items are displayed already, hide them
-		[self itemsWillDisapearIntoButton:sender];
+		[self itemsWillDisapearIntoButton:sender inView:view];
 	} else {
 		//the items aren't displayed, throw them into view
 		[self itemsWillAppearFromButton:sender inView:view];
@@ -185,6 +215,9 @@
 		[self.animationTimer invalidate];
 		self.animationTimer = nil;
 		
+        theMapView.scrollEnabled = YES;
+        theMapView.zoomEnabled = YES;
+
 		return;
 	}
 	self.itemIndex--;
@@ -202,7 +235,7 @@
 
 
 
-- (void)shouldRotateButton:(UIButton *)button forDuration:(float)duration forwardDirection:(BOOL)direction {
+- (void)shouldRotateButton:(UIView *)button forDuration:(float)duration forwardDirection:(BOOL)direction {
 	//use CABasicAnimation instead of a view animation so we can keep the spin going for more than 360
 	CABasicAnimation *spinAnimation = [CABasicAnimation animationWithKeyPath:@"transform.rotation"];
 	spinAnimation.duration = duration;
